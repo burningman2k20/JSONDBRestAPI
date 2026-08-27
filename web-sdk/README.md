@@ -11,6 +11,9 @@ const PROJECT_ID = import.meta.env.VITE_PROJECT_ID || 'your-project-id';
 export const client = new JsonDbClient(API_URL, PROJECT_ID);
 
 export const DATABASE_NAME = 'work_manager_db';
+
 export const PROFILES_COLLECTION = 'profiles';
+
 export const SHIFTS_COLLECTION = 'shifts';
+
 export const TIME_LOGS_COLLECTION = 'time_logs';
