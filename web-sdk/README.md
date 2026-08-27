@@ -3,7 +3,9 @@
 import { JsonDbClient } from './JsonDbClient';
 
 // Using local server fallback or custom server address
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
 const PROJECT_ID = import.meta.env.VITE_PROJECT_ID || 'your-project-id';
 
 export const client = new JsonDbClient(API_URL, PROJECT_ID);
