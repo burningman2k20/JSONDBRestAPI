@@ -1,29 +1,25 @@
 /**
- * Unified JSON REST DB Client SDK
- * Supports Dev Master Management, Project Sub-Accounts, and Document CRUD.
+ * Unified JSON REST DB Client SDK for Web / Node.js
+ * Supports Master Developer Management, App-User Auth, and Document CRUD.
  */
 export class JsonDbClient {
     /**
      * @param {string} [baseUrl='http://localhost:4000'] - REST API Server base URL
-     * @param {string} [projectId=null] - Optional default Project ID for app-user mode
+     * @param {string} [projectId=null] - Default Project ID for app-user mode
      */
     constructor(baseUrl = 'http://localhost:4000', projectId = null) {
         this.baseUrl = baseUrl.replace(/\/$/, '');
         this.projectId = projectId;
 
-        // Load active tokens and usernames
         this.token = this._loadStorage('auth_token') || this._loadStorage('dev_token');
         this.username = this._loadStorage('auth_user') || this._loadStorage('dev_username');
-        this.role = this._loadStorage('auth_role'); // 'dev' or 'app_user'
+        this.role = this._loadStorage('auth_role');
     }
 
     // ====================================================
     // 1. MASTER DEVELOPER AUTHENTICATION
     // ====================================================
 
-    /**
-     * Register a new Master Developer Account
-     */
     async registerDev(username, password) {
         const res = await fetch(`${this.baseUrl}/api/auth/dev/register`, {
             method: 'POST',
@@ -33,9 +29,6 @@ export class JsonDbClient {
         return await this._handleResponse(res);
     }
 
-    /**
-     * Log in as Master Developer and persist dev session
-     */
     async loginDev(username, password) {
         const res = await fetch(`${this.baseUrl}/api/auth/dev/login`, {
             method: 'POST',
@@ -61,9 +54,6 @@ export class JsonDbClient {
     // 2. PROJECT SUB-ACCOUNT (APP USER) AUTHENTICATION
     // ====================================================
 
-    /**
-     * Register an end-user / player under a specific project
-     */
     async register(username, password, projectId = this.projectId) {
         const projId = this._resolveProjectId(projectId);
         const res = await fetch(`${this.baseUrl}/api/projects/${projId}/auth/register`, {
@@ -74,9 +64,6 @@ export class JsonDbClient {
         return await this._handleResponse(res);
     }
 
-    /**
-     * Log in as an end-user / player under a specific project
-     */
     async login(username, password, projectId = this.projectId) {
         const projId = this._resolveProjectId(projectId);
         const res = await fetch(`${this.baseUrl}/api/projects/${projId}/auth/login`, {
@@ -99,9 +86,6 @@ export class JsonDbClient {
         return data;
     }
 
-    /**
-     * Clear active session (both Dev and App-User tokens)
-     */
     logout() {
         this.token = null;
         this.username = null;
@@ -176,7 +160,6 @@ export class JsonDbClient {
     }
 
     async createDatabase(projectId = this.projectId, name) {
-        // If only 1 argument was provided and it's a string, treat as (name)
         let projId = projectId;
         let dbName = name;
         if (!name && this.projectId) {
@@ -265,32 +248,29 @@ export class JsonDbClient {
     // 6. DOCUMENT CRUD OPERATIONS
     // ====================================================
 
-    /**
-     * Query all documents in a collection.
-     * Can be called as: getAllDocs(projectId, database, collection, filters)
-     *               or: getAll(database, collection, filters)
-     */
     async getAllDocs(projectId, database, collection, filters = {}) {
         const params = new URLSearchParams(filters).toString();
         const url = `${this.baseUrl}/api/projects/${projectId}/databases/${database}/collections/${collection}/docs${params ? `?${params}` : ''}`;
         const res = await fetch(url, { headers: this._headers() });
-        return await this._handleResponse(res);
+        const result = await this._handleResponse(res);
+        if (Array.isArray(result)) return result;
+        if (result && typeof result === 'object') return [result];
+        return [];
     }
 
     async getAll(database, collection, filters = {}) {
         return await this.getAllDocs(this._resolveProjectId(this.projectId), database, collection, filters);
     }
 
-    /**
-     * Create a new document.
-     * Can be called as: createDoc(projectId, database, collection, data)
-     *               or: create(database, collection, data)
-     */
     async createDoc(projectId, database, collection, data) {
+        const payload = { ...data };
+        delete payload.id;
+        delete payload._id;
+
         const res = await fetch(`${this.baseUrl}/api/projects/${projectId}/databases/${database}/collections/${collection}/docs`, {
             method: 'POST',
             headers: this._headers(),
-            body: JSON.stringify(data)
+            body: JSON.stringify(payload)
         });
         return await this._handleResponse(res);
     }
@@ -299,16 +279,15 @@ export class JsonDbClient {
         return await this.createDoc(this._resolveProjectId(this.projectId), database, collection, data);
     }
 
-    /**
-     * Update a document by ID.
-     * Can be called as: updateDoc(projectId, database, collection, id, data)
-     *               or: update(database, collection, id, data)
-     */
     async updateDoc(projectId, database, collection, id, data) {
+        const payload = { ...data };
+        delete payload.id;
+        delete payload._id;
+
         const res = await fetch(`${this.baseUrl}/api/projects/${projectId}/databases/${database}/collections/${collection}/docs/${id}`, {
             method: 'PUT',
             headers: this._headers(),
-            body: JSON.stringify(data)
+            body: JSON.stringify(payload)
         });
         return await this._handleResponse(res);
     }
@@ -317,11 +296,6 @@ export class JsonDbClient {
         return await this.updateDoc(this._resolveProjectId(this.projectId), database, collection, id, data);
     }
 
-    /**
-     * Delete a document by ID.
-     * Can be called as: deleteDoc(projectId, database, collection, id)
-     *               or: delete(database, collection, id)
-     */
     async deleteDoc(projectId, database, collection, id) {
         const res = await fetch(`${this.baseUrl}/api/projects/${projectId}/databases/${database}/collections/${collection}/docs/${id}`, {
             method: 'DELETE',
@@ -335,50 +309,99 @@ export class JsonDbClient {
     }
 
     // ====================================================
-    // INTERNAL HELPERS
+    // INTERNAL HELPERS & ROBUST TOKENIZER
     // ====================================================
 
     _resolveProjectId(passedId) {
         const id = passedId || this.projectId;
-        if (!id) {
-            throw new Error('[JsonDbClient] Missing projectId. Pass a projectId or set one in constructor.');
-        }
+        if (!id) throw new Error('[JsonDbClient] Missing projectId. Pass a projectId or set one in constructor.');
         return id;
     }
 
     _headers() {
         const headers = { 'Content-Type': 'application/json' };
-        if (this.token) {
-            headers['Authorization'] = `Bearer ${this.token}`;
-        }
+        if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
         return headers;
     }
 
     async _handleResponse(res) {
         const text = await res.text();
-        let data;
+        let data = null;
+
         try {
-            data = JSON.parse(text);
-        } catch {
-            data = { raw: text };
+            data = this._parseJsonSafely(text);
+        } catch (err) {
+            data = { raw: text, parseError: err.message };
         }
 
         if (!res.ok) {
-            throw new Error(data.error || `HTTP ${res.status}: ${res.statusText}`);
+            const serverMsg = (data && typeof data === 'object') 
+                ? (data.error || data.message || (data.errors ? JSON.stringify(data.errors) : null)) 
+                : null;
+            const errorMsg = serverMsg || `HTTP ${res.status}: ${res.statusText} (${text.slice(0, 250)})`;
+            throw new Error(errorMsg);
         }
+
         return data;
     }
 
-    _saveStorage(key, val) {
-        if (typeof localStorage !== 'undefined') {
-            localStorage.setItem(key, val);
+    _parseJsonSafely(text) {
+        if (!text || typeof text !== 'string') return text;
+        const trimmed = text.trim();
+        if (!trimmed) return null;
+
+        try {
+            return JSON.parse(trimmed);
+        } catch (_) {}
+
+        const results = [];
+        let inString = false;
+        let isEscaped = false;
+        let braceDepth = 0;
+        let bracketDepth = 0;
+        let startIndex = -1;
+
+        for (let i = 0; i < trimmed.length; i++) {
+            const char = trimmed[i];
+
+            if (isEscaped) { isEscaped = false; continue; }
+            if (char === '\\' && inString) { isEscaped = true; continue; }
+            if (char === '"') { inString = !inString; continue; }
+            if (inString) continue;
+
+            if (char === '{') {
+                if (braceDepth === 0 && bracketDepth === 0) startIndex = i;
+                braceDepth++;
+            } else if (char === '}') {
+                braceDepth--;
+                if (braceDepth === 0 && bracketDepth === 0 && startIndex !== -1) {
+                    try { results.push(JSON.parse(trimmed.slice(startIndex, i + 1))); } catch (_) {}
+                    startIndex = -1;
+                }
+            } else if (char === '[') {
+                if (braceDepth === 0 && bracketDepth === 0) startIndex = i;
+                bracketDepth++;
+            } else if (char === ']') {
+                bracketDepth--;
+                if (braceDepth === 0 && bracketDepth === 0 && startIndex !== -1) {
+                    try { results.push(JSON.parse(trimmed.slice(startIndex, i + 1))); } catch (_) {}
+                    startIndex = -1;
+                }
+            }
         }
+
+        if (results.length === 0) throw new Error(`Invalid JSON format: ${trimmed.slice(0, 150)}`);
+        if (results.length === 1) return results[0];
+        if (results.every(r => Array.isArray(r))) return results.flat();
+        return results.flatMap(r => Array.isArray(r) ? r : [r]);
+    }
+
+    _saveStorage(key, val) {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(key, val);
     }
 
     _loadStorage(key) {
-        if (typeof localStorage !== 'undefined') {
-            return localStorage.getItem(key) || null;
-        }
+        if (typeof localStorage !== 'undefined') return localStorage.getItem(key) || null;
         return null;
     }
 }
