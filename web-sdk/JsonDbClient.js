@@ -85,6 +85,16 @@ export class JsonDbClient {
 
         return data;
     }
+    
+     async changePassword(currentPassword, newPassword, projectId = this.projectId) {
+        const projId = this._resolveProjectId(projectId);
+        const res = await fetch(`${this.baseUrl}/api/projects/${projId}/auth/password`, {
+            method: 'PUT',
+            headers: this._headers(),
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+        return await this._handleResponse(res);
+    }
 
     logout() {
         this.token = null;

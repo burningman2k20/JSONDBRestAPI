@@ -33,6 +33,9 @@ public class JsonDbClient
     
     [Serializable]
     public class AuthResponse { public string token; public string username; public string userId; public string projectId; public string role; }
+    
+    [Serializable]
+    private class PasswordChangeRequest { public string currentPassword; public string newPassword; }
 
     public async Task<AuthResponse> RegisterAsync(string username, string password, string projectId = null)
     {
@@ -62,6 +65,16 @@ public class JsonDbClient
         PlayerPrefs.Save();
 
         return res;
+    }
+    
+    /// <summary>
+    /// Update the current sub-account's password
+    /// </summary>
+    public IEnumerator ChangePassword(string currentPassword, string newPassword, Action<bool, string> callback)
+    {
+        string endpoint = $"{baseUrl}/api/projects/{projectId}/auth/password";
+        string json = JsonUtility.ToJson(new PasswordChangeRequest { currentPassword = currentPassword, newPassword = newPassword });
+        yield return SendRequestAsync(endpoint, "PUT", json, callback, useAuth: true);
     }
 
     public void Logout()

@@ -64,6 +64,19 @@ class JsonDbClient(
             authToken
         }
     }
+    
+    /**
+     * Sub-account changes their own password
+     */
+    suspend fun changePassword(currentPass: String, newPass: String): Result<String> = withContext(Dispatchers.IO) {
+        val payload = mapOf("currentPassword" to currentPass, "newPassword" to newPass)
+        val body = gson.toJson(payload).toRequestBody(jsonMediaType)
+        val request = authorizedRequest("$baseUrl/api/projects/$projectId/auth/password").put(body).build()
+
+        executeRequest(request) { json ->
+            json.asJsonObject.get("message")?.asString ?: "Password updated successfully"
+        }
+    }
 
     fun logout() {
         this.token = null
