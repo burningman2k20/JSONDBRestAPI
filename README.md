@@ -23,15 +23,16 @@ Collections are automatically mapped to .json files inside data/projects/<projId
 All write operations use atomic file locks, ensuring concurrent web and mobile clients never overwrite or corrupt data.
 SDK Usage by Platform
 
-🌐 Web / React / Vite (JavaScript)
+## 🌐 Web / React / Vite (JavaScript)
 1. Initialization
-code
+`
 JavaScript
 import { JsonDbClient } from './JsonDbClient';
 
 const client = new JsonDbClient('http://localhost:4000', 'proj_50ea309f');
+`
 2. User Authentication
-code
+```
 JavaScript
 // Register a new user
 await client.register('john_doe', 'Password123');
@@ -42,8 +43,11 @@ console.log('Logged in as:', session.username, 'Token:', client.token);
 
 // Logout (clears localStorage)
 client.logout();
+```
+
 3. Document CRUD
-code
+
+```
 JavaScript
 const DB = 'work_manager_db';
 const COL = 'time_logs';
@@ -68,24 +72,26 @@ await client.update(DB, COL, newLog._id, {
 
 // DELETE
 await client.delete(DB, COL, newLog._id);
+```
 
-📱 Android (Kotlin / Coroutines)
+# 📱 Android (Kotlin / Coroutines)
 1. Initialization & Dependency
 Ensure your app/build.gradle.kts has OkHttp and Gson:
-code
+11
 Kotlin
 implementation("com.squareup.okhttp3:okhttp:4.12.0")
 implementation("com.google.code.gson:gson:2.10.1")
 Instantiate the client:
-code
+```
 Kotlin
 val client = JsonDbClient(
     context = applicationContext,
     projectId = "proj_50ea309f",
     baseUrl = "http://10.0.2.2:4000" // Use 10.0.2.2 for Android Emulator, or LAN IP for hardware devices
 )
+```
 2. Authentication Flow
-code
+```
 Kotlin
 // Login in ViewModel / CoroutineScope
 viewModelScope.launch {
@@ -97,8 +103,9 @@ viewModelScope.launch {
             Log.e("Auth", "Login failed: ${error.message}")
         }
 }
+```
 3. Strongly-Typed Document CRUD
-code
+```
 Kotlin
 data class PlayerScore(
     val username: String,
@@ -130,11 +137,12 @@ client.updateDocument("game_db", "scores", "doc_id_here", updatedScore)
 
 // DELETE
 client.deleteDocument("game_db", "scores", "doc_id_here")
+```
 
-🎮 Unity (C#)
+# 🎮 Unity (C#)
 1. Integration
 Place JsonDbClient.cs in Assets/Scripts/. Create a manager component:
-code
+```
 C#
 using UnityEngine;
 using System.Collections.Generic;
@@ -185,14 +193,18 @@ public class GameManager : MonoBehaviour
         }
     }
 }
+```
 
 REST API Status Codes & Responses
-Status Code	Meaning	Common Cause
-200 OK	Request Succeeded	Successful read, update, or login request.
-201 Created	Document / Account Created	New document, user account, or project registered.
-400 Bad Request	Invalid Payload or Format	Missing fields or illegal characters in collection/database names.
-401 Unauthorized	Missing or Invalid Token	Bearer token expired, missing, or invalid password.
-403 Forbidden	Scope Access Denied	Sub-user attempted to access a database outside their assigned Project ID.
-404 Not Found	Resource Missing	Document ID, Collection, or Project ID does not exist on server.
-409 Conflict	Duplicate Key	Username or Project identifier is already registered.
+
+| Status Code                            	| Meaning                                            	| Common Cause                                                               	|
+|----------------------------------------	|----------------------------------------------------	|----------------------------------------------------------------------------	|
+|                                        	|                                                    	|                                                                            	|
+| 200 OK  Request Succeeded              	| Successful read, update, or login request.         	|                                                                            	|
+| 201 Created Document / Account Created 	| New document, user account, or project registered. 	|                                                                            	|
+| 400 Bad Request                        	| Invalid Payload or Format                          	| Missing fields or illegal characters in collection/database names.         	|
+| 401 Unauthorized                       	| Missing or Invalid Token                           	| Bearer token expired, missing, or invalid password.                        	|
+| 403 Forbidden                          	| Scope Access Denied                                	| Sub-user attempted to access a database outside their assigned Project ID. 	|
+| 404 Not Found                          	| Resource Missing                                   	| Document ID, Collection, or Project ID does not exist on server.           	|
+| 409 Conflict                           	| Duplicate Key                                      	| Username or Project identifier is already registered.                      	|
  
